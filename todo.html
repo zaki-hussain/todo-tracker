@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To Do</title>
+    <style>
+        /* GLOBAL RESET */
+        * { box-sizing: border-box; }
+
+        :root {
+            --bg-color: #2d3032;
+            --card-bg: #363a3d;
+            --text-main: #e0e0e0;
+            --text-muted: #8a8f96;
+            --border: #464b50;
+            --highlight: #007bff;
+            --danger: #ff6b6b;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            max-width: 1400px; 
+            margin: 40px auto; 
+            padding: 0 30px 100px 30px;
+            color: var(--text-main); 
+            background: var(--bg-color); 
+            overflow-x: hidden;
+        }
+
+        /* Controls */
+        .controls { 
+            background: var(--card-bg); padding: 20px; border-radius: 8px; 
+            margin: 0 auto 30px auto; max-width: 600px;
+            border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            position: sticky; top: 20px; z-index: 100;
+        }
+        
+        .input-group { display: flex; gap: 8px; margin-bottom: 12px; }
+        
+        input#mainInput { 
+            flex-grow: 1; padding: 10px; background: #25282a; 
+            border: 1px solid var(--border); color: white; 
+            border-radius: 4px; outline: none; font-size: 16px;
+        }
+        
+        input#timeInput {
+            width: 120px; padding: 10px; background: #25282a;
+            border: 1px solid var(--border); color: var(--text-main);
+            border-radius: 4px; outline: none; font-size: 14px; text-align: left;
+        }
+
+        input:focus { border-color: var(--highlight) !important; }
+
+        button { 
+            padding: 8px 14px; border: none; border-radius: 4px; 
+            cursor: pointer; font-weight: 600; font-size: 13px; 
+        }
+        
+        .add-task { background: var(--highlight); color: white; }
+        .add-task:disabled { background: #444; color: #888; cursor: not-allowed; }
+        .add-sub { background: #50555a; color: white; }
+
+        /* --- NEW FLEX COLUMN LAYOUT SYSTEM --- */
+        .masonry-wrapper {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start; /* Keeps columns from stretching */
+            width: 100%;
+        }
+
+        .masonry-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 0; /* Prevents flex items from overflowing */
+        }
+
+        /* Headers */
+        .main-header {
+            display: flex; align-items: center; gap: 15px;
+            margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 5px;
+        }
+        .main-header h2 { margin: 0; font-size: 1.4em; color: var(--text-main); }
+        .header-total { font-size: 1em; color: var(--text-muted); font-weight: normal; }
+
+        /* Sections */
+        .section { 
+            width: 100%;
+            border-radius: 8px; padding: 15px 15px 10px 15px; 
+            border: 1px solid rgba(255,255,255,0.1); 
+        }
+        
+        .section-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; padding-bottom: 8px; 
+        }
+        .section-header h3 { margin: 0; font-size: 1.1em; cursor: text; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+
+        .group-footer {
+            margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;
+            font-size: 12px; color: rgba(255,255,255,0.6); display: flex; justify-content: space-between;
+        }
+
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        li:last-child { border-bottom: none; }
+
+        .item-text { flex-grow: 1; cursor: text; }
+        .done-text { color: rgba(255,255,255,0.4); text-decoration: line-through; }
+        
+        .time-badge { 
+            font-size: 12px; color: inherit; opacity: 0.8;
+            padding: 3px 6px; min-width: 20px; text-align: right; font-weight: 500;
+        }
+        .time-badge:empty::before { content: "--"; opacity: 0; }
+        li:hover .time-badge:empty::before { opacity: 0.3; }
+
+        .btn-group { display: flex; gap: 6px; opacity: 0; transition: opacity 0.2s; }
+        li:hover .btn-group { opacity: 1; }
+        .move-btn { background: rgba(0,0,0,0.2); color: #ccc; font-size: 11px; }
+        .delete-btn { background: rgba(0,0,0,0.2); color: #ff9999; font-size: 16px; }
+
+        /* Done Section Specifics */
+        #done-container { margin-top: 50px; }
+        .done-group-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .done-group-title { margin: 0; color: rgba(255,255,255,0.7); font-size: 1em; font-weight: bold; }
+        
+        /* Action Buttons */
+        .restore-all-btn { 
+            background: #25282a; color: var(--text-muted); border: 1px solid var(--border); 
+            font-size: 12px; padding: 5px 10px; 
+        }
+        .restore-all-btn:hover { background: #333; color: white; }
+
+        .restore-group-btn {
+            background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); 
+            color: rgba(255,255,255,0.6); font-size: 11px; padding: 2px 8px;
+        }
+        .restore-group-btn:hover { background: rgba(0,0,0,0.4); color: white; }
+
+        .edit-input { width: 100%; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--highlight); padding: 4px; border-radius: 4px; }
+        .edit-time-input { width: 60px; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--highlight); padding: 2px; border-radius: 4px; font-size: 12px; text-align: left; }
+
+        .portability-tools { margin-top: 30px; display: flex; gap: 10px; justify-content: center; opacity: 0.4; transition: opacity 0.3s; margin-bottom: 20px; }
+        .portability-tools:hover { opacity: 1; }
+        .port-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-weight: normal; font-size: 11px; }
+
+        .move-menu { position: absolute; background: #25282a; border: 1px solid #555; z-index: 1000; padding: 5px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .move-menu button { display: block; width: 100%; text-align: left; background: none; color: #ddd; padding: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <div class="input-group">
+            <input type="text" id="mainInput" placeholder="Write a task" onkeypress="if(event.key === 'Enter') addTask()">
+            <input type="text" id="timeInput" placeholder="Estimated time" oninput="this.value = this.value.replace(/[^0-9.:]/g, '')" onkeypress="if(event.key === 'Enter') addTask()">
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button id="addTaskBtn" class="add-task" onclick="addTask()">+ Task</button>
+            <button class="add-sub" onclick="addSubheading()">+ Group</button>
+        </div>
+    </div>
+
+    <div class="main-header">
+        <h2>To Do</h2>
+        <span id="header-todo-total" class="header-total"></span>
+    </div>
+    <div id="active-content" class="masonry-wrapper"></div>
+
+    <div id="done-container">
+        <div class="main-header" style="margin-top: 40px; border-bottom: 2px dashed var(--border);">
+            <h2 style="color: var(--text-muted);">Done</h2>
+            <span id="header-done-total" class="header-total"></span>
+            <button class="restore-all-btn" onclick="markAllActive()">Mark all as To Do ↺</button>
+        </div>
+        <div id="done-content" class="masonry-wrapper"></div>
+    </div>
+
+    <div class="portability-tools">
+        <button class="port-btn" onclick="exportData()">Export Data</button>
+        <button class="port-btn" onclick="importData()">Import Data</button>
+    </div>
+
+    <script>
+        let data = { subheadings: [{ id: 'default', title: 'General' }], tasks: [] };
+
+        const PALETTE = [
+            "hsl(210, 50%, 25%)", "hsl(340, 40%, 25%)", "hsl(150, 40%, 22%)", "hsl(270, 40%, 26%)",
+            "hsl(25, 45%, 24%)", "hsl(190, 50%, 22%)", "hsl(55, 40%, 22%)", "hsl(300, 30%, 24%)",
+            "hsl(0, 40%, 25%)", "hsl(120, 35%, 22%)", "hsl(240, 35%, 28%)", "hsl(15, 40%, 25%)"
+        ];
+
+        window.onload = () => {
+            const saved = localStorage.getItem('myChecklistData');
+            if (saved) data = JSON.parse(saved);
+            render();
+            // Re-render on resize to adjust columns dynamically
+            window.onresize = render;
+        };
+
+        function saveData() { localStorage.setItem('myChecklistData', JSON.stringify(data)); }
+
+        function parseToMinutes(input) {
+            if (!input) return 0;
+            const str = input.toString().trim();
+            if (str.includes(':')) {
+                const parts = str.split(':');
+                return (parseInt(parts[0] || 0) * 60) + parseInt(parts[1] || 0);
+            }
+            if (str.includes('.')) return Math.round(parseFloat(str) * 60);
+            return parseInt(str) * 60;
+        }
+
+        function formatMinutes(mins) {
+            if (!mins || mins <= 0) return "";
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            if (h > 0 && m > 0) return `${h}h ${m}m`;
+            if (h > 0) return `${h}h`;
+            return `${m}m`;
+        }
+
+        function getColumnCount() {
+            if (window.innerWidth >= 1100) return 3;
+            if (window.innerWidth >= 768) return 2;
+            return 1;
+        }
+
+        function render() {
+            const activeContent = document.getElementById('active-content');
+            const doneContent = document.getElementById('done-content');
+            activeContent.innerHTML = ''; doneContent.innerHTML = '';
+
+            const hasGroups = data.subheadings.length > 0;
+            document.getElementById('addTaskBtn').disabled = !hasGroups;
+            document.getElementById('mainInput').placeholder = hasGroups ? "Write a task" : "Create a group first...";
+
+            let gActiveTotal = 0;
+            let gDoneTotal = 0;
+            const groupTotals = {};
+            const groupColors = {};
+
+            // 1. Prepare Columns Arrays (Round-Robin Logic)
+            const numCols = getColumnCount();
+            const activeCols = Array.from({length: numCols}, () => document.createElement('div'));
+            const doneCols = Array.from({length: numCols}, () => document.createElement('div'));
+            
+            activeCols.forEach(col => { col.className = 'masonry-column'; activeContent.appendChild(col); });
+            doneCols.forEach(col => { col.className = 'masonry-column'; doneContent.appendChild(col); });
+
+            // 2. Setup Data
+            data.subheadings.forEach((sub, index) => { 
+                groupTotals[sub.id] = { active: 0, done: 0 };
+                groupColors[sub.id] = `background: ${PALETTE[index % PALETTE.length]}; border-color: rgba(255,255,255,0.1);`;
+            });
+
+            data.tasks.forEach(task => {
+                const mins = task.minutes || 0;
+                if (!groupTotals[task.originId]) groupTotals[task.originId] = { active: 0, done: 0 };
+                if (task.done) { gDoneTotal += mins; groupTotals[task.originId].done += mins; }
+                else { gActiveTotal += mins; groupTotals[task.originId].active += mins; }
+            });
+
+            document.getElementById('header-todo-total').innerText = gActiveTotal > 0 ? `(${formatMinutes(gActiveTotal)})` : '';
+            document.getElementById('header-done-total').innerText = gDoneTotal > 0 ? `(${formatMinutes(gDoneTotal)})` : '';
+
+            // 3. Render Cards into Columns (Round Robin Distribution)
+            data.subheadings.forEach((sub, index) => {
+                const totals = groupTotals[sub.id];
+                const style = groupColors[sub.id];
+                const colIndex = index % numCols; // 0, 1, 2, 0, 1, 2...
+
+                // Active Card
+                const div = document.createElement('div');
+                div.className = 'section';
+                div.id = `section-${sub.id}`;
+                div.style = style;
+                div.innerHTML = `
+                    <div class="section-header">
+                        <h3 ondblclick="editSubheading(this, '${sub.id}')">${sub.title}</h3>
+                        <button style="background:none; color:rgba(255,255,255,0.5); font-size:11px;" onclick="removeSection('${sub.id}')">Delete</button>
+                    </div>
+                    <ul id="list-${sub.id}"></ul>
+                    <div class="group-footer">
+                        <span>${totals.active > 0 ? 'Remaining: ' + formatMinutes(totals.active) : ''}</span>
+                    </div>
+                `;
+                activeCols[colIndex].appendChild(div);
+
+                // Done Card
+                if (totals.done > 0 || document.getElementById(`done-list-${sub.id}`)) {
+                    const dDiv = document.createElement('div');
+                    dDiv.id = `done-section-${sub.id}`; 
+                    dDiv.className = 'section';
+                    dDiv.style = `${style} display: none; opacity: 0.6;`; 
+                    const doneTimeText = totals.done > 0 ? `<span style="font-weight:normal; font-size:0.85em; opacity:0.7;">(${formatMinutes(totals.done)})</span>` : '';
+                    dDiv.innerHTML = `
+                        <div class="done-group-header-row">
+                            <h4 class="done-group-title">${sub.title} ${doneTimeText}</h4>
+                            <button class="restore-group-btn" onclick="markGroupActive('${sub.id}')">Restore</button>
+                        </div>
+                        <ul id="done-list-${sub.id}"></ul>
+                    `;
+                    doneCols[colIndex].appendChild(dDiv);
+                }
+            });
+
+            // 4. Populate Tasks
+            data.tasks.forEach(task => {
+                const mins = task.minutes || 0;
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <input type="checkbox" ${task.done ? 'checked' : ''} onclick="toggleTask('${task.id}')">
+                    <span class="item-text ${task.done ? 'done-text' : ''}" ondblclick="editTask(this, '${task.id}')">${task.text}</span>
+                    <span class="time-badge" ondblclick="editTime(this, '${task.id}')">${formatMinutes(mins)}</span>
+                    <div class="btn-group">
+                        <button class="move-btn" onclick="showMoveMenu(event, '${task.id}')">Move</button>
+                        <button class="delete-btn" onclick="removeTask('${task.id}')">&times;</button>
+                    </div>
+                `;
+                if (task.done) {
+                    const dl = document.getElementById(`done-list-${task.originId}`);
+                    if(dl) { dl.appendChild(li); document.getElementById(`done-section-${task.originId}`).style.display = 'block'; }
+                    else {
+                        // If container missing (rare edge case), force display
+                        const container = document.getElementById(`done-section-${task.originId}`);
+                        if(container) { container.style.display = 'block'; container.querySelector('ul').appendChild(li); }
+                    }
+                } else {
+                    const al = document.getElementById(`list-${task.originId}`);
+                    if(al) al.appendChild(li);
+                }
+            });
+        }
+
+        function markGroupActive(groupId) { data.tasks.forEach(t => { if(t.originId === groupId) t.done = false; }); saveAndRefresh(); }
+        function markAllActive() { if(confirm("Restore all?")) { data.tasks.forEach(t => t.done = false); saveAndRefresh(); } }
+
+        function addTask() {
+            const textVal = document.getElementById('mainInput').value.trim();
+            const timeVal = document.getElementById('timeInput').value.trim();
+            if (!textVal || data.subheadings.length === 0) return;
+            const lastSub = data.subheadings[data.subheadings.length - 1].id;
+            data.tasks.push({ id: 'task-' + Date.now(), text: textVal, minutes: parseToMinutes(timeVal), originId: lastSub, done: false });
+            document.getElementById('mainInput').value = ''; document.getElementById('timeInput').value = '';
+            document.getElementById('mainInput').focus(); saveAndRefresh();
+        }
+
+        function addSubheading() {
+            const val = document.getElementById('mainInput').value.trim();
+            if (!val) return;
+            data.subheadings.push({ id: 'sub-' + Date.now(), title: val });
+            document.getElementById('mainInput').value = ''; saveAndRefresh();
+        }
+
+        function editTask(el, id) {
+            const input = document.createElement('input'); input.className = 'edit-input'; input.value = el.innerText;
+            input.onblur = () => { const t = data.tasks.find(x => x.id === id); if(input.value.trim()) t.text = input.value.trim(); saveAndRefresh(); };
+            input.onkeypress = (e) => { if(e.key === 'Enter') input.blur(); };
+            el.replaceWith(input); input.focus();
+        }
+
+        function editTime(el, id) {
+            const input = document.createElement('input'); input.className = 'edit-time-input'; input.value = ""; 
+            input.oninput = function() { this.value = this.value.replace(/[^0-9.:]/g, ''); };
+            input.onblur = () => { const t = data.tasks.find(x => x.id === id); if(input.value) t.minutes = parseToMinutes(input.value); saveAndRefresh(); };
+            input.onkeypress = (e) => { if(e.key === 'Enter') input.blur(); };
+            el.replaceWith(input); input.focus();
+        }
+
+        function editSubheading(el, id) {
+            const input = document.createElement('input'); input.className = 'edit-input'; input.value = el.innerText;
+            input.onblur = () => { const s = data.subheadings.find(x => x.id === id); if(input.value.trim()) s.title = input.value.trim(); saveAndRefresh(); };
+            input.onkeypress = (e) => { if(e.key === 'Enter') input.blur(); };
+            el.replaceWith(input); input.focus();
+        }
+
+        function toggleTask(id) { const t = data.tasks.find(x => x.id === id); t.done = !t.done; saveAndRefresh(); }
+        function removeTask(id) { data.tasks = data.tasks.filter(x => x.id !== id); saveAndRefresh(); }
+        function removeSection(id) { if(confirm("Delete group?")) { data.subheadings = data.subheadings.filter(x => x.id !== id); data.tasks = data.tasks.filter(x => x.originId !== id); saveAndRefresh(); } }
+
+        function showMoveMenu(e, taskId) {
+            const existing = document.querySelector('.move-menu'); if (existing) existing.remove();
+            const menu = document.createElement('div'); menu.className = 'move-menu';
+            data.subheadings.forEach(sub => {
+                const btn = document.createElement('button'); btn.innerText = `To: ${sub.title}`;
+                btn.onclick = () => { data.tasks.find(t => t.id === taskId).originId = sub.id; saveAndRefresh(); };
+                menu.appendChild(btn);
+            });
+            document.body.appendChild(menu); menu.style.top = e.pageY + 'px'; menu.style.left = e.pageX + 'px';
+            setTimeout(() => { window.onclick = () => { menu.remove(); window.onclick = null; }; }, 0);
+        }
+
+        function exportData() { navigator.clipboard.writeText(JSON.stringify(data)).then(() => alert("Data copied!")); }
+        function importData() { const json = prompt("Paste data:"); if (json) { try { data = JSON.parse(json); saveAndRefresh(); } catch (e) { alert("Invalid data."); } } }
+        function saveAndRefresh() { saveData(); render(); }
+    </script>
+</body>
+</html>
